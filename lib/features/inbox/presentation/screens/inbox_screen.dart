@@ -1,76 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
+import 'package:mindwipe/core/widgets/omnitrix_wheel.dart';
+import '../providers/inbox_provider.dart';
 import '../widgets/task_card.dart';
-import '../widgets/quick_add_bar.dart';
 import '../widgets/empty_state.dart';
 
-/// The main Inbox screen — the heart of MindWipe.
+/// The main Inbox screen linked to Riverpod state.
 ///
-/// 🧠 LEARN: This is a [StatefulWidget] because it manages the scroll
-/// position and will later manage task interactions. The [State] object
-/// persists across rebuilds (e.g., when hot-reloading).
-///
-/// STRUCTURE:
-/// - A gradient background fills the entire screen
-/// - A scrollable list of TaskCards floats in the center
-/// - A QuickAddBar is pinned to the bottom
-/// - When empty, the EmptyState widget shows
-///
-/// In Phase 2, we'll replace the hardcoded tasks with real state management.
-class InboxScreen extends StatefulWidget {
+/// 🧠 LEARN: By extending [ConsumerStatefulWidget] instead of [StatefulWidget],
+/// we get a persistent [ref] object inside our [State] class. This [ref] is used to
+/// watch providers (ref.watch) or read them (ref.read).
+class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
 
   @override
-  State<InboxScreen> createState() => _InboxScreenState();
+  ConsumerState<InboxScreen> createState() => _InboxScreenState();
 }
 
-class _InboxScreenState extends State<InboxScreen> {
-  // Hardcoded sample tasks for Phase 1 (static UI)
-  // In Phase 2, these will come from Riverpod state
-  final List<Map<String, dynamic>> _sampleTasks = [
-    {
-      'title': 'Order 20mm metal Casio spring bars',
-      'timestamp': '2 min ago',
-      'isCompleted': false,
-    },
-    {
-      'title': 'Pack trekking gear for Fairy Meadows',
-      'timestamp': '15 min ago',
-      'isCompleted': false,
-    },
-    {
-      'title': 'Research MVVM architecture for Flutter',
-      'timestamp': '1 hour ago',
-      'isCompleted': true,
-    },
-    {
-      'title': 'Hit 100g protein target',
-      'timestamp': '3 hours ago',
-      'isCompleted': false,
-    },
-    {
-      'title': 'Take Creatine',
-      'timestamp': '5 hours ago',
-      'isCompleted': true,
-    },
-    {
-      'title': 'Chest & Triceps split — 5 exercises',
-      'timestamp': 'Yesterday',
-      'isCompleted': true,
-    },
-  ];
+class _InboxScreenState extends ConsumerState<InboxScreen> {
+  int _currentPageIndex = 0;
+
+  /// Helper to convert a DateTime into a relative string.
+  String _getRelativeTime(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inSeconds < 60) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} min ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else {
+      return 'Yesterday';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    // Get the bottom padding for devices with gesture navigation
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
+    // 🧠 LEARN: ref.watch makes this widget listen to the inboxProvider.
+    // Every time the list of tasks changes, this build method runs again.
+    final tasks = ref.watch(inboxProvider);
+    final incompleteCount = tasks.where((t) => !t.isCompleted).length;
+
     return Scaffold(
-      // Transparent scaffold — we draw our own background
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: true,
       body: Container(
-        // ─── Full-screen gradient background ──────────────────
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -79,62 +59,147 @@ class _InboxScreenState extends State<InboxScreen> {
           ),
         ),
         child: SafeArea(
-          bottom: false, // We handle bottom padding manually
+          bottom: false,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ─── Header ──────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Inbox',
-                      style: textTheme.displayMedium,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Inbox',
+                          style: textTheme.displayMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$incompleteCount thought${incompleteCount == 1 ? '' : 's'} floating',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_sampleTasks.where((t) => !(t['isCompleted'] as bool)).length} thoughts floating',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textTertiary,
+                    // ─── Profile icon ────────────────────────────────
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.06),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.pets_rounded,
+                        size: 18,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
 
               // ─── Task List ───────────────────────────────────
               Expanded(
-                child: _sampleTasks.isEmpty
+                child: tasks.isEmpty
                     ? const EmptyState()
                     : ListView.builder(
-                        padding: const EdgeInsets.only(top: 8, bottom: 8),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: _sampleTasks.length,
+                        padding: const EdgeInsets.only(top: 4, bottom: 16),
+                        physics: const BouncingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
+                        itemCount: tasks.length,
                         itemBuilder: (context, index) {
-                          final task = _sampleTasks[index];
-                          return TaskCard(
-                            title: task['title'] as String,
-                            timestamp: task['timestamp'] as String,
-                            isCompleted: task['isCompleted'] as bool,
-                            onCompleteTap: () {
-                              setState(() {
-                                task['isCompleted'] = !(task['isCompleted'] as bool);
-                              });
+                          final task = tasks[index];
+                          
+                          // 🧠 LEARN: Dismissible enables swipe-to-dismiss actions.
+                          // It requires a unique key so Flutter can track widget identities.
+                          return Dismissible(
+                            key: Key(task.id),
+                            direction: DismissDirection.endToStart,
+                            onDismissed: (_) {
+                              // Trigger state deletion
+                              ref.read(inboxProvider.notifier).deleteTask(task.id);
+                              HapticFeedback.mediumImpact();
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.backgroundElevated,
+                                  content: Text(
+                                    'Thought cleared',
+                                    style: TextStyle(color: AppColors.textPrimary),
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
                             },
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 32),
+                              color: Colors.transparent,
+                              child: Icon(
+                                Icons.delete_outline_rounded,
+                                color: AppColors.error.withValues(alpha: 0.8),
+                                size: 24,
+                              ),
+                            ),
+                            child: TaskCard(
+                              title: task.title,
+                              timestamp: _getRelativeTime(task.createdAt),
+                              isCompleted: task.isCompleted,
+                              onCompleteTap: () {
+                                ref.read(inboxProvider.notifier).toggleComplete(task.id);
+                                HapticFeedback.selectionClick();
+                              },
+                            )
+                            .animate(
+                              // Apply soft entrance animation to new cards
+                              effects: [
+                                const FadeEffect(duration: Duration(milliseconds: 300)),
+                                const SlideEffect(
+                                  begin: Offset(0.05, 0),
+                                  curve: Curves.easeOutCubic,
+                                  duration: Duration(milliseconds: 350),
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
               ),
 
-              // ─── Quick Add Bar (pinned to bottom) ────────────
-              Padding(
-                padding: EdgeInsets.only(bottom: bottomPadding + 8),
-                child: const QuickAddBar(),
+              // ─── Bottom Wheel (Habits / + / Mind) ────────────
+              BottomWheel(
+                currentIndex: _currentPageIndex,
+                onTaskAdded: (title) {
+                  // 🧠 LEARN: ref.read is used inside event handlers
+                  // to call methods on the provider notifier.
+                  ref.read(inboxProvider.notifier).addTask(title);
+                },
+                onHabitsTap: () {
+                  setState(() => _currentPageIndex = 1);
+                  // TODO: Phase 4 — navigate to Habits screen
+                },
+                onMindTap: () {
+                  setState(() => _currentPageIndex = 2);
+                  // TODO: Phase 4 — navigate to Mind screen
+                },
               ),
+
+              SizedBox(height: bottomPadding),
             ],
           ),
         ),

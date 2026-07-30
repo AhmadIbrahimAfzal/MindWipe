@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
 import 'package:mindwipe/core/widgets/glass_card.dart';
 
-/// A single task card in the Inbox feed.
+/// A floaty, pill-shaped task card.
 ///
-/// 🧠 LEARN: This widget uses [GlassCard] as its container and displays
-/// the task title, a timestamp, and a completion indicator.
-///
-/// For now this is a [StatelessWidget] with hardcoded data.
-/// In Phase 2, we'll wire it up to actual state management.
+/// 🧠 LEARN: The pill shape comes from a very high [borderRadius] (28+).
+/// Combined with the floating shadow from [GlassCard], each card feels
+/// like a liquid bubble sitting on the screen — inspired by iOS widgets.
 class TaskCard extends StatelessWidget {
   const TaskCard({
     super.key,
@@ -30,9 +28,11 @@ class TaskCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return GlassCard(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      opacity: isCompleted ? 0.04 : 0.08,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+      borderRadius: 28,
+      opacity: isCompleted ? 0.03 : 0.07,
+      borderOpacity: isCompleted ? 0.04 : 0.10,
       child: Row(
         children: [
           // ─── Completion Circle ──────────────────────────────
@@ -41,25 +41,25 @@ class TaskCard extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutCubic,
-              width: 26,
-              height: 26,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isCompleted
-                    ? AppColors.success.withValues(alpha: 0.2)
+                    ? AppColors.textSecondary.withValues(alpha: 0.2)
                     : Colors.transparent,
                 border: Border.all(
                   color: isCompleted
-                      ? AppColors.success
-                      : AppColors.textTertiary,
+                      ? AppColors.textSecondary
+                      : AppColors.textTertiary.withValues(alpha: 0.6),
                   width: 1.5,
                 ),
               ),
               child: isCompleted
                   ? Icon(
                       Icons.check_rounded,
-                      size: 16,
-                      color: AppColors.success,
+                      size: 14,
+                      color: AppColors.textSecondary,
                     )
                   : null,
             ),
@@ -75,18 +75,22 @@ class TaskCard extends StatelessWidget {
                 Text(
                   title,
                   style: textTheme.bodyLarge?.copyWith(
-                    decoration: isCompleted
-                        ? TextDecoration.lineThrough
-                        : null,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                    decorationColor: AppColors.textTertiary,
                     color: isCompleted
                         ? AppColors.textTertiary
                         : AppColors.textPrimary,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   timestamp,
-                  style: textTheme.bodySmall,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),

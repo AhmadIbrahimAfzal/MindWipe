@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
 
-/// An elegant empty state illustration for when the Inbox has no tasks.
-///
-/// 🧠 LEARN: Empty states are crucial UX — they tell users what to do next.
-/// Instead of a boring "No tasks" text, we show a visual that encourages
-/// the user to add their first thought.
+/// Elegant empty state for when the Inbox has no tasks.
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key});
 
@@ -19,42 +15,41 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ─── Abstract Icon ─────────────────────────────────
+            // ─── Subtle icon ──────────────────────────────────
             Container(
-              width: 80,
-              height: 80,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.accentPrimary.withValues(alpha: 0.15),
-                    AppColors.accentPrimary.withValues(alpha: 0.0),
-                  ],
+                color: Colors.white.withValues(alpha: 0.04),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  width: 0.5,
                 ),
               ),
               child: Icon(
                 Icons.bubble_chart_rounded,
-                size: 40,
-                color: AppColors.accentPrimary,
+                size: 32,
+                color: AppColors.textTertiary,
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // ─── Title ─────────────────────────────────────────
             Text(
               'Your mind is clear',
               style: textTheme.headlineSmall?.copyWith(
                 color: AppColors.textSecondary,
+                fontWeight: FontWeight.w400,
+                letterSpacing: -0.5,
               ),
               textAlign: TextAlign.center,
             ),
 
             const SizedBox(height: 8),
 
-            // ─── Subtitle ──────────────────────────────────────
             Text(
-              'Dump a thought below to start filling your inbox',
+              'Tap + to dump a thought',
               style: textTheme.bodyMedium?.copyWith(
                 color: AppColors.textTertiary,
               ),
