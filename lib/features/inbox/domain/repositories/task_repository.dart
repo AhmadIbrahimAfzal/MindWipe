@@ -7,6 +7,7 @@ import '../entities/task.dart';
 /// without changing a single line of presentation code.
 abstract class TaskRepository {
   Future<List<Task>> getTasks();
+  Stream<List<Task>> watchTasks();
   Future<void> saveTask(Task task);
   Future<void> updateTask(Task task);
   Future<void> deleteTask(String id);

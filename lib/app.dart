@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
-import 'features/inbox/presentation/screens/inbox_screen.dart';
+import 'package:mindwipe/features/navigation/presentation/screens/main_shell.dart';
 
 /// The root [MaterialApp] widget for MindWipe.
 ///
@@ -19,7 +19,7 @@ class MindWipeApp extends StatelessWidget {
       title: 'MindWipe',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const InboxScreen(),
+      home: const MainShell(),
     );
   }
 }

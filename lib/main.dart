@@ -1,28 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mindwipe/core/constants/supabase_config.dart';
 import 'app.dart';
 
 /// The entry point of MindWipe.
 ///
-/// 🧠 LEARN: Every Flutter app starts here. [main()] is the first function
-/// Dart calls when your app launches.
-///
-/// [WidgetsFlutterBinding.ensureInitialized()] must be called before any
-/// Flutter APIs are used (like setting system UI styles). It initializes
-/// the binding between Dart and the native platform.
-///
-/// [SystemChrome] lets us control native OS UI elements — here we make
-/// the status bar transparent and the navigation bar match our dark theme.
-void main() {
+/// 🧠 LEARN: We now initialize Supabase before running the app.
+/// This sets up the network client, auth session listener, and
+/// real-time websocket connection. The app still loads instantly
+/// because Supabase init is non-blocking for the UI.
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase SDK
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    publishableKey: SupabaseConfig.publishableKey,
+  );
 
   // Make the system navigation bar blend with our dark theme
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF000000), // Pure black navigation bar
+      systemNavigationBarColor: Color(0xFF000000),
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );

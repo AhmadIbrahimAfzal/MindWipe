@@ -3,16 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
-import 'package:mindwipe/core/widgets/omnitrix_wheel.dart';
 import '../providers/inbox_provider.dart';
 import '../widgets/task_card.dart';
 import '../widgets/empty_state.dart';
+import 'package:mindwipe/features/auth/presentation/screens/account_screen.dart';
 
-/// The main Inbox screen linked to Riverpod state.
+/// The modular Inbox list component linked to local database streams.
 ///
-/// 🧠 LEARN: By extending [ConsumerStatefulWidget] instead of [StatefulWidget],
-/// we get a persistent [ref] object inside our [State] class. This [ref] is used to
-/// watch providers (ref.watch) or read them (ref.read).
+/// 🧠 LEARN:
+/// - [ref.watch(inboxProvider)] now returns an [AsyncValue<List<Task>>] because
+///   it watches a database [Stream].
+/// - We use `tasksAsync.when` to handle the three states: data, loading, and error.
+/// - This ensures the app doesn't crash or show empty lists while SQLite loads.
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
 
@@ -21,9 +23,6 @@ class InboxScreen extends ConsumerStatefulWidget {
 }
 
 class _InboxScreenState extends ConsumerState<InboxScreen> {
-  int _currentPageIndex = 0;
-
-  /// Helper to convert a DateTime into a relative string.
   String _getRelativeTime(DateTime dateTime) {
     final difference = DateTime.now().difference(dateTime);
     if (difference.inSeconds < 60) {
@@ -40,170 +39,173 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // 🧠 LEARN: ref.watch makes this widget listen to the inboxProvider.
-    // Every time the list of tasks changes, this build method runs again.
-    final tasks = ref.watch(inboxProvider);
-    final incompleteCount = tasks.where((t) => !t.isCompleted).length;
+    // Watch the database async stream
+    final tasksAsync = ref.watch(inboxProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      resizeToAvoidBottomInset: true,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: AppColors.backgroundGradient,
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
+    return Column(
+      children: [
+        // ─── Header ──────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // ─── Header ──────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Inbox',
-                          style: textTheme.displayMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -1.0,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$incompleteCount thought${incompleteCount == 1 ? '' : 's'} floating',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Inbox',
+                    style: textTheme.displayMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -1.0,
                     ),
-                    // ─── Profile icon ────────────────────────────────
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.06),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          width: 0.5,
+                  ),
+                  const SizedBox(height: 2),
+                  // Render pending count based on loaded stream state
+                  tasksAsync.when(
+                    data: (tasks) {
+                      final incompleteCount = tasks.where((t) => !t.isCompleted).length;
+                      return Text(
+                        '$incompleteCount thought${incompleteCount == 1 ? '' : 's'} floating',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          letterSpacing: 0.5,
                         ),
-                      ),
-                      child: Icon(
-                        Icons.pets_rounded,
-                        size: 18,
-                        color: AppColors.textSecondary,
+                      );
+                    },
+                    loading: () => Text(
+                      'Loading thoughts...',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.textTertiary,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  ],
+                    error: (_, __) => Text(
+                      'Error loading thoughts',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.error,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // ─── Profile icon ───
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const AccountScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.pets_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // ─── Task List ───────────────────────────────────
-              Expanded(
-                child: tasks.isEmpty
-                    ? const EmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 4, bottom: 16),
-                        physics: const BouncingScrollPhysics(
-                          parent: AlwaysScrollableScrollPhysics(),
-                        ),
-                        itemCount: tasks.length,
-                        itemBuilder: (context, index) {
-                          final task = tasks[index];
-                          
-                          // 🧠 LEARN: Dismissible enables swipe-to-dismiss actions.
-                          // It requires a unique key so Flutter can track widget identities.
-                          return Dismissible(
-                            key: Key(task.id),
-                            direction: DismissDirection.endToStart,
-                            onDismissed: (_) {
-                              // Trigger state deletion
-                              ref.read(inboxProvider.notifier).deleteTask(task.id);
-                              HapticFeedback.mediumImpact();
-                              
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppColors.backgroundElevated,
-                                  content: Text(
-                                    'Thought cleared',
-                                    style: TextStyle(color: AppColors.textPrimary),
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 32),
-                              color: Colors.transparent,
-                              child: Icon(
-                                Icons.delete_outline_rounded,
-                                color: AppColors.error.withValues(alpha: 0.8),
-                                size: 24,
-                              ),
-                            ),
-                            child: TaskCard(
-                              title: task.title,
-                              timestamp: _getRelativeTime(task.createdAt),
-                              isCompleted: task.isCompleted,
-                              onCompleteTap: () {
-                                ref.read(inboxProvider.notifier).toggleComplete(task.id);
-                                HapticFeedback.selectionClick();
-                              },
-                            )
-                            .animate(
-                              // Apply soft entrance animation to new cards
-                              effects: [
-                                const FadeEffect(duration: Duration(milliseconds: 300)),
-                                const SlideEffect(
-                                  begin: Offset(0.05, 0),
-                                  curve: Curves.easeOutCubic,
-                                  duration: Duration(milliseconds: 350),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-
-              // ─── Bottom Wheel (Habits / + / Mind) ────────────
-              BottomWheel(
-                currentIndex: _currentPageIndex,
-                onTaskAdded: (title) {
-                  // 🧠 LEARN: ref.read is used inside event handlers
-                  // to call methods on the provider notifier.
-                  ref.read(inboxProvider.notifier).addTask(title);
-                },
-                onHabitsTap: () {
-                  setState(() => _currentPageIndex = 1);
-                  // TODO: Phase 4 — navigate to Habits screen
-                },
-                onMindTap: () {
-                  setState(() => _currentPageIndex = 2);
-                  // TODO: Phase 4 — navigate to Mind screen
-                },
-              ),
-
-              SizedBox(height: bottomPadding),
             ],
           ),
         ),
-      ),
+
+        const SizedBox(height: 20),
+
+        // ─── Task List ───────────────────────────────────
+        Expanded(
+          child: tasksAsync.when(
+            data: (tasks) {
+              if (tasks.isEmpty) {
+                return const EmptyState();
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.only(top: 4, bottom: 20),
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                itemCount: tasks.length,
+                itemBuilder: (context, index) {
+                  final task = tasks[index];
+                  return Dismissible(
+                    key: Key(task.id),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (_) {
+                      ref.read(inboxProvider.notifier).deleteTask(task.id);
+                      HapticFeedback.mediumImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: AppColors.backgroundElevated,
+                          content: Text(
+                            'Thought cleared',
+                            style: TextStyle(color: AppColors.textPrimary),
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 32),
+                      color: Colors.transparent,
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        color: AppColors.error.withValues(alpha: 0.8),
+                        size: 24,
+                      ),
+                    ),
+                    child: TaskCard(
+                      title: task.title,
+                      timestamp: _getRelativeTime(task.createdAt),
+                      isCompleted: task.isCompleted,
+                      onCompleteTap: () {
+                        ref.read(inboxProvider.notifier).toggleComplete(task.id);
+                        HapticFeedback.selectionClick();
+                      },
+                    ).animate(
+                      effects: [
+                        const FadeEffect(duration: Duration(milliseconds: 300)),
+                        const SlideEffect(
+                          begin: Offset(0.05, 0),
+                          curve: Curves.easeOutCubic,
+                          duration: Duration(milliseconds: 350),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+            // Loading and error states
+            loading: () => const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.textSecondary),
+              ),
+            ),
+            error: (error, _) => Center(
+              child: Text(
+                'Failed to load thoughts: $error',
+                style: const TextStyle(color: AppColors.error),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

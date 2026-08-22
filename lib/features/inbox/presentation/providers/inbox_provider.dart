@@ -1,85 +1,91 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:mindwipe/database/app_database.dart';
+import 'package:mindwipe/features/inbox/data/datasources/task_local_datasource.dart';
+import 'package:mindwipe/features/inbox/data/repositories/task_repository_impl.dart';
 import '../../domain/entities/task.dart';
+import '../../domain/repositories/task_repository.dart';
+import 'package:mindwipe/features/widget_bridge/widget_sync_service.dart';
 
-/// Notifier class that manages the list of tasks.
+// ─── Core Infrastructure Providers ────────────────────────────────
+// 🧠 LEARN: We register singletons for our DB layers. Riverpod caches these
+// so the database file is only opened once.
+
+/// Exposes the SQLite database instance.
+final databaseProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase();
+  // Clean up database on hot-restart / provider destruction
+  ref.onDispose(() => db.close());
+  return db;
+});
+
+/// Exposes the local database datasource.
+final taskLocalDatasourceProvider = Provider<TaskLocalDatasource>((ref) {
+  final db = ref.watch(databaseProvider);
+  return TaskLocalDatasource(db);
+});
+
+/// Exposes the task repository implementation.
+final taskRepositoryProvider = Provider<TaskRepository>((ref) {
+  final datasource = ref.watch(taskLocalDatasourceProvider);
+  return TaskRepositoryImpl(datasource);
+});
+
+// ─── Reactive State Provider ─────────────────────────────────────
+
+/// Notifier class that manages database operations.
 ///
-/// 🧠 LEARN: [Notifier] is the modern Riverpod controller.
-/// It holds an immutable [state] object (here, a `List<Task>`).
-/// To modify state:
-/// - We compute the new list (e.g. adding or removing items).
-/// - We assign the new list to [state].
-/// - Riverpod detects the change and notifies any listening widgets to rebuild.
-class InboxNotifier extends Notifier<List<Task>> {
+/// 🧠 LEARN:
+/// - Instead of storing a mutable list in memory, this notifier extends [StreamNotifier].
+/// - In [build()], we return a reactive SQLite stream (`watchTasks()`).
+/// - When we call [addTask], [toggleComplete], or [deleteTask], we update the SQLite table directly.
+/// - The watch stream detects the SQLite write and automatically emits a new list,
+///   updating the UI with zero manually synced lists.
+class InboxNotifier extends StreamNotifier<List<Task>> {
   @override
-  List<Task> build() {
-    // Initial sample tasks (static UI fallback)
-    return [
-      Task(
-        id: const Uuid().v4(),
-        title: 'Order 20mm metal Casio spring bars',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
-      ),
-      Task(
-        id: const Uuid().v4(),
-        title: 'Pack trekking gear for Fairy Meadows',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
-      ),
-      Task(
-        id: const Uuid().v4(),
-        title: 'Research MVVM architecture for Flutter',
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-        isCompleted: true,
-        completedAt: DateTime.now().subtract(const Duration(hours: 1)),
-      ),
-      Task(
-        id: const Uuid().v4(),
-        title: 'Hit 100g protein target',
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-      ),
-      Task(
-        id: const Uuid().v4(),
-        title: 'Take Creatine',
-        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-        isCompleted: true,
-        completedAt: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-    ];
+  Stream<List<Task>> build() {
+    final stream = ref.watch(taskRepositoryProvider).watchTasks();
+    // Update home screen widgets whenever task stream emits new state
+    stream.listen((taskList) {
+      const WidgetSyncService().updateWidgets(taskList);
+    });
+    return stream;
   }
 
-  /// Adds a new task to the inbox.
-  void addTask(String title) {
+  /// Adds a new task to the local database.
+  Future<void> addTask(String title) async {
     final newTask = Task(
       id: const Uuid().v4(),
       title: title,
       createdAt: DateTime.now(),
     );
-
-    // Prepend the new task to the top of the list
-    state = [newTask, ...state];
+    await ref.read(taskRepositoryProvider).saveTask(newTask);
   }
 
-  /// Toggles the completion status of a task by its ID.
-  void toggleComplete(String id) {
-    state = state.map((task) {
-      if (task.id == id) {
-        final newStatus = !task.isCompleted;
-        return task.copyWith(
-          isCompleted: newStatus,
-          completedAt: newStatus ? DateTime.now() : null,
-        );
-      }
-      return task;
-    }).toList();
+  /// Toggles the completion status of a task in the local database.
+  Future<void> toggleComplete(String id) async {
+    // Read the current list from the active stream state
+    final currentTasks = state.value ?? [];
+    final taskIndex = currentTasks.indexWhere((t) => t.id == id);
+    if (taskIndex != -1) {
+      final task = currentTasks[taskIndex];
+      final newStatus = !task.isCompleted;
+      final updatedTask = task.copyWith(
+        isCompleted: newStatus,
+        completedAt: newStatus ? DateTime.now() : null,
+      );
+      await ref.read(taskRepositoryProvider).updateTask(updatedTask);
+    }
   }
 
-  /// Deletes a task from the list by its ID.
-  void deleteTask(String id) {
-    state = state.where((task) => task.id != id).toList();
+  /// Deletes a task from the local database.
+  Future<void> deleteTask(String id) async {
+    await ref.read(taskRepositoryProvider).deleteTask(id);
   }
 }
 
-/// Provider reference for the [InboxNotifier] to expose its state.
-final inboxProvider = NotifierProvider<InboxNotifier, List<Task>>(() {
+/// Provider reference for the [InboxNotifier].
+final inboxProvider = StreamNotifierProvider<InboxNotifier, List<Task>>(() {
   return InboxNotifier();
 });
