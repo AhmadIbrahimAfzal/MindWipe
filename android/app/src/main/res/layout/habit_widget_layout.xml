@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/habit_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/widget_surface_background"
+    android:padding="16dp">
+
+    <!-- Top Header Row: Icon, Title & Subtitle, Tick Button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- Icon Container -->
+        <TextView
+            android:id="@+id/habit_widget_icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:background="@drawable/widget_icon_badge"
+            android:text="⚡"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp" />
+
+        <!-- Title & Subtitle -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/habit_widget_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Coding"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/habit_widget_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Learn to code with Flutter &amp; Dart"
+                android:textColor="#8E8E93"
+                android:textSize="12sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <!-- Large Today Checkmark Action Button -->
+        <ImageView
+            android:id="@+id/habit_widget_check_btn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/widget_check_active"
+            android:src="@drawable/ic_check_white"
+            android:contentDescription="Check off today"
+            android:scaleType="centerInside"
+            android:clickable="false"
+            android:focusable="false" />
+    </LinearLayout>
+
+    <!-- Bottom HabitKit Dot Matrix Consistency Grid Image -->
+    <ImageView
+        android:id="@+id/habit_widget_matrix_image"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="14dp"
+        android:scaleType="fitXY"
+        android:contentDescription="Consistency grid" />
+
+</LinearLayout>

@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1C1C1E"
+    android:background="@drawable/widget_card_bg"
     android:orientation="horizontal"
-    android:padding="16dp"
+    android:paddingStart="18dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp"
     android:gravity="center_vertical">
 
     <LinearLayout
@@ -13,14 +17,19 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
+        <!-- Bubbly Count Badge -->
         <TextView
             android:id="@+id/widget_pending_count"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0 thoughts"
+            android:text="0 THOUGHTS FLOATING"
             android:textColor="#8E8E93"
-            android:textSize="11sp" />
+            android:textSize="10sp"
+            android:fontFamily="sans-serif-rounded"
+            android:textStyle="bold"
+            android:letterSpacing="0.08" />
 
+        <!-- Big Bubbly Top Task -->
         <TextView
             android:id="@+id/widget_top_task"
             android:layout_width="wrap_content"
@@ -28,18 +37,31 @@
             android:layout_marginTop="2dp"
             android:text="Dump a thought..."
             android:textColor="#F2F2F7"
-            android:textSize="14sp"
+            android:textSize="17sp"
+            android:fontFamily="sans-serif-rounded"
             android:textStyle="bold"
             android:maxLines="1"
             android:ellipsize="end" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:text="+"
-        android:textColor="#F2F2F7"
-        android:textSize="20sp"
+    <!-- Bubbly Circular Add Button -->
+    <LinearLayout
+        android:id="@+id/widget_add_button"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/widget_button_bg"
         android:gravity="center"
-        android:background="#2C2C2E" />
+        android:clickable="true"
+        android:focusable="true">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+"
+            android:textColor="#F2F2F7"
+            android:textSize="24sp"
+            android:fontFamily="sans-serif-rounded"
+            android:textStyle="bold"
+            android:gravity="center" />
+    </LinearLayout>
 </LinearLayout>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/quick_capture_scrim"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#80000000"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:id="@+id/quick_capture_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/quick_capture_dialog_bg"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Quick Dump"
+            android:textColor="#8E8E93"
+            android:textSize="12sp"
+            android:fontFamily="sans-serif-rounded"
+            android:textStyle="bold"
+            android:letterSpacing="0.06" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/quick_capture_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="Type your thought..."
+                android:textColorHint="#48484A"
+                android:textColor="#F2F2F7"
+                android:textSize="17sp"
+                android:fontFamily="sans-serif-rounded"
+                android:maxLines="3"
+                android:imeOptions="actionDone"
+                android:inputType="textCapSentences|textAutoCorrect" />
+
+            <ImageView
+                android:id="@+id/quick_capture_submit"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/widget_button_bg"
+                android:padding="9dp"
+                android:src="@android:drawable/ic_menu_send"
+                android:contentDescription="Save" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

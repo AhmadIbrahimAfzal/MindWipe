@@ -7,12 +7,6 @@ import 'package:path/path.dart' as p;
 part 'app_database.g.dart';
 
 /// SQLite schema definition for Tasks table.
-///
-/// 🧠 LEARN: Sync metadata columns enable the "outbox pattern":
-/// - [updatedAt]: Tracks the last modification time for sync comparison.
-/// - [isDirty]: When true, the row has local changes not yet pushed to Supabase.
-/// - [isDeleted]: Soft-delete flag. Instead of removing rows, we mark them deleted
-///   so the sync engine can push the deletion to the server before purging locally.
 @DataClassName('TaskData')
 class Tasks extends Table {
   TextColumn get id => text()();
@@ -30,13 +24,52 @@ class Tasks extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// SQLite schema definition for Habits table.
+@DataClassName('HabitData')
+class Habits extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get description => text().withDefault(const Constant(''))();
+  TextColumn get iconKey => text().withDefault(const Constant('sport'))();
+  IntColumn get colorValue => integer().withDefault(const Constant(0xFF6366F1))();
+  TextColumn get habitType => text().withDefault(const Constant('build'))(); // 'build' or 'quit'
+  IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  // ─── Sync Metadata ─────────────────────────────────────────────
+  DateTimeColumn get updatedAt => dateTime()();
+  BoolColumn get isDirty => boolean().withDefault(const Constant(true))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// SQLite schema definition for daily habit completions.
+@DataClassName('HabitCompletionData')
+class HabitCompletions extends Table {
+  TextColumn get id => text()(); // Format: '${habitId}_${date}'
+  TextColumn get habitId => text().references(Habits, #id)();
+  TextColumn get date => text()(); // Format: 'YYYY-MM-DD'
+  DateTimeColumn get completedAt => dateTime()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  // ─── Sync Metadata ─────────────────────────────────────────────
+  DateTimeColumn get updatedAt => dateTime()();
+  BoolColumn get isDirty => boolean().withDefault(const Constant(true))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// The local Drift SQLite database entry point.
-@DriftDatabase(tables: [Tasks])
+@DriftDatabase(tables: [Tasks, Habits, HabitCompletions])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -46,10 +79,13 @@ class AppDatabase extends _$AppDatabase {
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
-          // Add the three new sync metadata columns to the existing Tasks table
           await m.addColumn(tasks, tasks.updatedAt);
           await m.addColumn(tasks, tasks.isDirty);
           await m.addColumn(tasks, tasks.isDeleted);
+        }
+        if (from < 3) {
+          await m.createTable(habits);
+          await m.createTable(habitCompletions);
         }
       },
     );

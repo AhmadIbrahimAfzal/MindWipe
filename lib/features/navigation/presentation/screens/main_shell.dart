@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
-import 'package:mindwipe/core/widgets/omnitrix_wheel.dart';
+import 'package:mindwipe/core/widgets/fluid_bottom_nav.dart';
 import 'package:mindwipe/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:mindwipe/features/inbox/presentation/providers/inbox_provider.dart';
 import 'package:mindwipe/features/habits/presentation/screens/habits_screen.dart';
 import 'package:mindwipe/features/mind/presentation/screens/mind_screen.dart';
-
-/// The root layout manager shell.
-///
-/// 🧠 LEARN: This shell coordinates:
-/// 1. A central [PageView] that hosts our 3 sub-screens (Habits, Inbox, Mind).
-/// 2. A single [PageController] that synchronizes state with the [RotaryOmnitrixWheel].
-/// 3. Puts the [RotaryOmnitrixWheel] at the bottom of the screen stacked over the content.
+import 'package:mindwipe/features/habits/presentation/providers/habits_provider.dart';
 import 'package:mindwipe/features/auth/presentation/providers/auth_provider.dart';
 import 'package:mindwipe/features/sync/sync_provider.dart';
 
+/// The root layout manager shell.
+///
+/// Coordinates the PageView hosting 3 sub-screens (Habits, Inbox, Mind),
+/// synchronizes the FluidBottomNav with the PageController,
+/// and initializes background auth/sync services on launch.
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
@@ -24,7 +23,6 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  // Start on Page 1 (Inbox)
   late PageController _pageController;
 
   @override
@@ -32,12 +30,14 @@ class _MainShellState extends ConsumerState<MainShell> {
     super.initState();
     _pageController = PageController(initialPage: 1);
 
-    // Initialize guest session and background sync non-blockingly
+    // Initialize guest session, background sync, and warm up habit widget sync
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(authProvider.notifier).ensureSession();
       final syncService = ref.read(syncServiceProvider);
       syncService.startRealtimeSubscription();
       syncService.sync();
+      // Eagerly listen to habits to sync home screen widget
+      ref.read(habitsProvider);
     });
   }
 
@@ -55,8 +55,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: true,
       body: Container(
-        // Outer dark gradient background matching our black/grey aesthetic
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -69,8 +68,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             children: [
               // ─── Swipeable Screen Views ───────────────────────
               Padding(
-                // Leave room at the bottom for the wheel height + padding
-                padding: const EdgeInsets.only(bottom: 120),
+                padding: const EdgeInsets.only(bottom: 110),
                 child: PageView(
                   controller: _pageController,
                   physics: const BouncingScrollPhysics(),
@@ -82,12 +80,12 @@ class _MainShellState extends ConsumerState<MainShell> {
                 ),
               ),
 
-              // ─── Synchronized Bottom Dial ─────────────────────
+              // ─── Fluid Bottom Navigation Bar ──────────────────
               Positioned(
                 bottom: bottomPadding,
                 left: 0,
                 right: 0,
-                child: RotaryOmnitrixWheel(
+                child: FluidBottomNav(
                   pageController: _pageController,
                   onTaskAdded: (title) {
                     ref.read(inboxProvider.notifier).addTask(title);

@@ -5,6 +5,8 @@ import 'package:mindwipe/core/theme/app_colors.dart';
 import 'package:mindwipe/core/widgets/glass_card.dart';
 import 'package:mindwipe/features/auth/presentation/providers/auth_provider.dart';
 import 'package:mindwipe/features/sync/sync_provider.dart';
+import 'package:mindwipe/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:mindwipe/features/subscription/presentation/screens/paywall_screen.dart';
 
 /// Account settings screen — upgrade from guest to linked account.
 ///
@@ -125,6 +127,80 @@ class AccountScreen extends ConsumerWidget {
                   child: ListView(
                     physics: const BouncingScrollPhysics(),
                     children: [
+                      // ─── Pro Subscription Status Card ─────────
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final sub = ref.watch(subscriptionProvider);
+                          return GestureDetector(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const PaywallScreen(),
+                                ),
+                              );
+                            },
+                            child: GlassCard(
+                              padding: const EdgeInsets.all(18),
+                              margin: const EdgeInsets.only(bottom: 16),
+                              borderRadius: 22,
+                              opacity: sub.isPremium ? 0.08 : 0.05,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white.withValues(alpha: 0.06),
+                                    ),
+                                    child: Icon(
+                                      sub.isPremium
+                                          ? Icons.workspace_premium_rounded
+                                          : Icons.star_border_rounded,
+                                      size: 22,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          sub.isPremium
+                                              ? 'MindWipe Pro Active'
+                                              : 'Upgrade to MindWipe Pro',
+                                          style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          sub.isPremium
+                                              ? 'Cloud Sync & All Widgets unlocked'
+                                              : 'Unlock Cloud Sync & Floating Widgets',
+                                          style: TextStyle(
+                                            color: AppColors.textTertiary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 20,
+                                    color: AppColors.textTertiary,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       if (!auth.isAuthenticated) ...[
                         // ─── Upgrade Prompt ─────────────────────
                         GlassCard(

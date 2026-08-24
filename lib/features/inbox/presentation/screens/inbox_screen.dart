@@ -3,18 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
+import 'package:mindwipe/core/services/audio_service.dart';
+import 'package:mindwipe/features/auth/presentation/screens/account_screen.dart';
 import '../providers/inbox_provider.dart';
 import '../widgets/task_card.dart';
 import '../widgets/empty_state.dart';
-import 'package:mindwipe/features/auth/presentation/screens/account_screen.dart';
+import '../widgets/inbox_skeleton.dart';
 
 /// The modular Inbox list component linked to local database streams.
 ///
-/// 🧠 LEARN:
-/// - [ref.watch(inboxProvider)] now returns an [AsyncValue<List<Task>>] because
-///   it watches a database [Stream].
-/// - We use `tasksAsync.when` to handle the three states: data, loading, and error.
-/// - This ensures the app doesn't crash or show empty lists while SQLite loads.
+/// Phase 6 Upgrades:
+/// - Shimmer skeleton loading state instead of spinner.
+/// - Staggered entrance animations on task cards.
+/// - Glassmorphic floating snackbar on delete.
+/// - Smooth page transition to Account screen.
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
 
@@ -36,11 +38,60 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     }
   }
 
+  void _showGlassSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 140, left: 24, right: 24),
+        padding: EdgeInsets.zero,
+        duration: const Duration(seconds: 2),
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.backgroundSurface.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+                spreadRadius: -4,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                message,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
-    // Watch the database async stream
     final tasksAsync = ref.watch(inboxProvider);
 
     return Column(
@@ -62,7 +113,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  // Render pending count based on loaded stream state
                   tasksAsync.when(
                     data: (tasks) {
                       final incompleteCount = tasks.where((t) => !t.isCompleted).length;
@@ -97,8 +147,29 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                 onTap: () {
                   HapticFeedback.lightImpact();
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const AccountScreen(),
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) {
+                        return const AccountScreen();
+                      },
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        return FadeTransition(
+                          opacity: CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOut,
+                          ),
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.03, 0),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            )),
+                            child: child,
+                          ),
+                        );
+                      },
+                      transitionDuration: const Duration(milliseconds: 350),
                     ),
                   );
                 },
@@ -144,19 +215,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                   return Dismissible(
                     key: Key(task.id),
                     direction: DismissDirection.endToStart,
+                    dismissThresholds: const {DismissDirection.endToStart: 0.35},
+                    movementDuration: const Duration(milliseconds: 250),
                     onDismissed: (_) {
                       ref.read(inboxProvider.notifier).deleteTask(task.id);
-                      HapticFeedback.mediumImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: AppColors.backgroundElevated,
-                          content: Text(
-                            'Thought cleared',
-                            style: TextStyle(color: AppColors.textPrimary),
-                          ),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
+                      AudioFeedback.playWhoosh();
+                      _showGlassSnackBar(context, 'Thought cleared');
                     },
                     background: Container(
                       alignment: Alignment.centerRight,
@@ -164,8 +228,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                       color: Colors.transparent,
                       child: Icon(
                         Icons.delete_outline_rounded,
-                        color: AppColors.error.withValues(alpha: 0.8),
-                        size: 24,
+                        color: AppColors.error.withValues(alpha: 0.7),
+                        size: 22,
                       ),
                     ),
                     child: TaskCard(
@@ -174,38 +238,75 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                       isCompleted: task.isCompleted,
                       onCompleteTap: () {
                         ref.read(inboxProvider.notifier).toggleComplete(task.id);
-                        HapticFeedback.selectionClick();
+                        AudioFeedback.playPop();
                       },
-                    ).animate(
-                      effects: [
-                        const FadeEffect(duration: Duration(milliseconds: 300)),
-                        const SlideEffect(
-                          begin: Offset(0.05, 0),
-                          curve: Curves.easeOutCubic,
-                          duration: Duration(milliseconds: 350),
-                        ),
-                      ],
+                    ).animate().fadeIn(
+                      delay: Duration(milliseconds: index.clamp(0, 8) * 50),
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeOut,
+                    ).slideX(
+                      begin: 0.03,
+                      end: 0,
+                      delay: Duration(milliseconds: index.clamp(0, 8) * 50),
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOutCubic,
                     ),
                   );
                 },
               );
             },
-            // Loading and error states
-            loading: () => const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.textSecondary),
-              ),
-            ),
-            error: (error, _) => Center(
-              child: Text(
-                'Failed to load thoughts: $error',
-                style: const TextStyle(color: AppColors.error),
-              ),
-            ),
+            // Shimmer skeleton instead of spinner
+            loading: () => const InboxSkeleton(),
+            error: (error, _) => _buildErrorState(error),
           ),
         ),
       ],
+    );
+  }
+
+  /// Elegant error state with retry action.
+  Widget _buildErrorState(Object error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.error.withValues(alpha: 0.08),
+              ),
+              child: Icon(
+                Icons.cloud_off_rounded,
+                size: 28,
+                color: AppColors.error.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Something went wrong',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Could not load your thoughts.\nTry again in a moment.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textTertiary,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -20,8 +20,18 @@ class SyncService {
   static const _lastSyncKey = 'mindwipe_last_sync_timestamp';
   RealtimeChannel? _channel;
 
-  /// Start listening for real-time remote changes.
-  void startRealtimeSubscription() {
+  static const _premiumKey = 'mindwipe_is_premium';
+
+  /// Returns true if the user has an active MindWipe Pro subscription.
+  Future<bool> _isPro() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_premiumKey) ?? false;
+  }
+
+  /// Start listening for real-time remote changes (Pro feature).
+  Future<void> startRealtimeSubscription() async {
+    if (!await _isPro()) return;
+
     final supabase = Supabase.instance.client;
     _channel = supabase
         .channel('tasks-realtime')
@@ -42,8 +52,11 @@ class SyncService {
     _channel = null;
   }
 
-  /// Full sync cycle: push local changes, then pull remote changes.
+  /// Full sync cycle: push local changes, then pull remote changes (Pro feature).
   Future<void> sync() async {
+    // Paywall check: Free tier data stays strictly on the local device
+    if (!await _isPro()) return;
+
     try {
       await pushDirtyRows();
       await pullRemoteChanges();
