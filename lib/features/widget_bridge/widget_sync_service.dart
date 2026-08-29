@@ -149,6 +149,7 @@ class WidgetSyncService {
     await HomeWidget.saveWidgetData('primary_habit_id', habit.id);
     await HomeWidget.saveWidgetData('primary_habit_name', habit.name);
     await HomeWidget.saveWidgetData('primary_habit_description', habit.description);
+    await HomeWidget.saveWidgetData('primary_habit_icon_key', habit.iconKey);
     await HomeWidget.saveWidgetData('primary_habit_icon', iconSymbol);
     await HomeWidget.saveWidgetData('primary_habit_color', colorHex);
     await HomeWidget.saveWidgetData(

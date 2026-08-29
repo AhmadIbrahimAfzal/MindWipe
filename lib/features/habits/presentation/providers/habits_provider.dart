@@ -22,7 +22,8 @@ class HabitsNotifier extends StreamNotifier<List<Habit>> {
   @override
   Stream<List<Habit>> build() {
     final repo = ref.watch(habitRepositoryProvider);
-    final stream = repo.watchHabits();
+    // Convert to broadcast so both Riverpod AND widget sync can listen
+    final stream = repo.watchHabits().asBroadcastStream();
 
     // Broadcast update to Android home screen habit widget
     stream.listen((habits) {

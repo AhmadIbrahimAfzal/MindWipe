@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mindwipe/features/widget_bridge/widget_sync_service.dart';
 import 'package:mindwipe/features/inbox/presentation/providers/inbox_provider.dart';
 
+import 'package:mindwipe/features/subscription/services/purchase_service.dart';
+
 /// Subscription state model.
 ///
 /// 🧠 LEARN:
@@ -36,6 +38,12 @@ class SubscriptionNotifier extends Notifier<SubscriptionState> {
   @override
   SubscriptionState build() {
     _loadFromPrefs();
+
+    // Hook into native Google Play purchase callbacks
+    PurchaseService.instance.onPremiumChanged = (isPremium) {
+      setPremium(isPremium);
+    };
+
     return const SubscriptionState(isPremium: false, planName: 'MindWipe Free');
   }
 

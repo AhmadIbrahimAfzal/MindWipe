@@ -17,13 +17,26 @@ class HabitLocalDatasource {
   final AppDatabase _db;
 
   /// Watch all active (non-deleted) habits with their completed dates.
+  ///
+  /// Uses Drift's `readsFrom` to watch BOTH the habits and habit_completions
+  /// tables. Whenever either table is modified (habit added/edited, or
+  /// completion toggled), the stream automatically re-emits fresh data.
   Stream<List<HabitWithCompletionsData>> watchHabits() {
-    final habitsQuery = _db.select(_db.habits)
-      ..where((h) => h.isDeleted.equals(false))
-      ..orderBy([(h) => OrderingTerm(expression: h.orderIndex)]);
+    // This custom query watches both tables via readsFrom.
+    // When either table changes, Drift re-triggers the stream.
+    return _db
+        .customSelect(
+          'SELECT h.id FROM habits h WHERE h.is_deleted = 0 LIMIT 0',
+          readsFrom: {_db.habits, _db.habitCompletions},
+        )
+        .watch()
+        .asyncMap((_) async {
+      final habits = await (_db.select(_db.habits)
+            ..where((h) => h.isDeleted.equals(false))
+            ..orderBy([(h) => OrderingTerm(expression: h.orderIndex)]))
+          .get();
 
-    return habitsQuery.watch().asyncMap((habits) async {
-      if (habits.isEmpty) return [];
+      if (habits.isEmpty) return <HabitWithCompletionsData>[];
 
       final completions = await (_db.select(_db.habitCompletions)
             ..where((c) => c.isDeleted.equals(false)))

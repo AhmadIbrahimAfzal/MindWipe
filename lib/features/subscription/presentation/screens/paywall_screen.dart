@@ -4,14 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
 import 'package:mindwipe/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:mindwipe/features/subscription/services/purchase_service.dart';
 import 'package:mindwipe/features/sync/sync_provider.dart';
 
 /// MindWipe Pro Paywall & Subscription Screen.
 ///
-/// 🧠 LEARN:
-/// - Paywalls Cloud Sync & Multi-device Backup (free tier is 100% on-device SQLite).
-/// - Unlocks all Android Home Screen Widgets (Micro Task Pill, etc).
-/// - Dark glassmorphic design matching the app's aesthetic.
+/// Features:
+/// - Connected to Google Play Billing via `PurchaseService`.
+/// - 3 Plans: Annual (7-day trial), Monthly, Lifetime (one-time).
+/// - Dynamic prices formatted directly by Google Play currency rates.
+/// - Full Restore purchases flow and Google Play policy compliance footer.
 class PaywallScreen extends ConsumerStatefulWidget {
   const PaywallScreen({super.key});
 
@@ -21,32 +23,117 @@ class PaywallScreen extends ConsumerStatefulWidget {
 
 class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   int _selectedPlanIndex = 0; // 0: Annual, 1: Monthly, 2: Lifetime
+  bool _isLoading = false;
 
-  final List<Map<String, String>> _plans = [
-    {
-      'title': 'Annual',
-      'price': '\$19.99 / year',
-      'subtext': '\$1.66/month • 7-day free trial',
-      'tag': 'BEST VALUE',
-    },
-    {
-      'title': 'Monthly',
-      'price': '\$2.99 / month',
-      'subtext': 'Billed monthly • Cancel anytime',
-      'tag': '',
-    },
-    {
-      'title': 'Lifetime',
-      'price': '\$49.99',
-      'subtext': 'One-time payment • Forever access',
-      'tag': 'FOREVER',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+
+    // Hook error listener to display friendly snackbar
+    PurchaseService.instance.onError = (message) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: const Color(0xFF2C2C2E),
+          ),
+        );
+      }
+    };
+  }
+
+  List<Map<String, String>> _getPlans() {
+    final annualPrice = PurchaseService.instance.getPriceFormatted(
+      PurchaseService.annualProductId,
+      '\$19.99 / year',
+    );
+    final monthlyPrice = PurchaseService.instance.getPriceFormatted(
+      PurchaseService.monthlyProductId,
+      '\$2.99 / month',
+    );
+    final lifetimePrice = PurchaseService.instance.getPriceFormatted(
+      PurchaseService.lifetimeProductId,
+      '\$49.99',
+    );
+
+    return [
+      {
+        'id': PurchaseService.annualProductId,
+        'title': 'Annual',
+        'price': annualPrice,
+        'subtext': 'Includes 7-day free trial • Best value',
+        'tag': 'SAVE 45%',
+      },
+      {
+        'id': PurchaseService.monthlyProductId,
+        'title': 'Monthly',
+        'price': monthlyPrice,
+        'subtext': 'Billed monthly • Cancel anytime',
+        'tag': '',
+      },
+      {
+        'id': PurchaseService.lifetimeProductId,
+        'title': 'Lifetime',
+        'price': lifetimePrice,
+        'subtext': 'One-time payment • Forever access',
+        'tag': 'FOREVER',
+      },
+    ];
+  }
+
+  Future<void> _onSubscribe() async {
+    HapticFeedback.mediumImpact();
+    setState(() => _isLoading = true);
+
+    final plans = _getPlans();
+    final selectedProduct = plans[_selectedPlanIndex]['id']!;
+
+    final initiated = await PurchaseService.instance.buyProduct(selectedProduct);
+    if (!initiated && mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _onRestore() async {
+    HapticFeedback.lightImpact();
+    setState(() => _isLoading = true);
+
+    await PurchaseService.instance.restorePurchases();
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Checking active subscriptions on Google Play... ✨'),
+          backgroundColor: Color(0xFF2C2C2E),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final subState = ref.watch(subscriptionProvider);
     final textTheme = Theme.of(context).textTheme;
+    final plans = _getPlans();
+
+    // If purchase completed successfully while on this screen
+    ref.listen<SubscriptionState>(subscriptionProvider, (previous, next) {
+      if (next.isPremium && !(previous?.isPremium ?? false)) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ref.read(syncServiceProvider).sync();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Welcome to MindWipe Pro! 🚀'),
+              backgroundColor: Color(0xFF8B5CF6),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -61,7 +148,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // ─── Header with Close Button ─────────────────────
+              // ─── Header with Close Button & Restore ───────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Row(
@@ -76,16 +163,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () async {
-                        HapticFeedback.lightImpact();
-                        await ref.read(subscriptionProvider.notifier).unlockPro();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Purchases restored ✨')),
-                          );
-                          Navigator.of(context).pop();
-                        }
-                      },
+                      onPressed: _isLoading ? null : _onRestore,
                       child: Text(
                         'Restore',
                         style: TextStyle(
@@ -156,77 +234,99 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                     const SizedBox(height: 6),
                     Center(
                       child: Text(
-                        'Sync across all your devices & unlock all widgets',
+                        'Sync across devices, unlock all widgets & track unlimited rituals',
                         textAlign: TextAlign.center,
-                        style: textTheme.bodySmall?.copyWith(
+                        style: textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
-                          height: 1.4,
+                          height: 1.3,
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
 
-                    // Feature Checklist
-                    _buildFeatureRow(
-                      icon: Icons.cloud_sync_rounded,
-                      title: 'Cloud Backup & Multi-Device Sync',
-                      description: 'Real-time sync to all your phones, tablets & devices',
-                    ),
-                    const SizedBox(height: 14),
-                    _buildFeatureRow(
-                      icon: Icons.widgets_rounded,
-                      title: 'All Home Screen Widgets Unlocked',
-                      description: 'Floating Micro-Task Pill & upcoming widget styles',
-                    ),
-                    const SizedBox(height: 14),
-                    _buildFeatureRow(
-                      icon: Icons.psychology_rounded,
-                      title: 'Mind AI Insights & Analytics',
-                      description: 'AI thought pattern detection & habit stats',
-                    ),
-                    const SizedBox(height: 14),
-                    _buildFeatureRow(
-                      icon: Icons.offline_bolt_rounded,
-                      title: 'Zero Latency & Priority Sync',
-                      description: 'Instant local persistence + high speed cloud replication',
+                    // ─── Feature Comparison List ────────────────
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildFeatureRow(
+                            icon: Icons.sync_rounded,
+                            title: 'Real-Time Cloud Sync',
+                            description:
+                                'Seamless synchronization across all your Android devices with zero latency.',
+                          ),
+                          const Divider(
+                            color: Colors.white10,
+                            height: 24,
+                            thickness: 0.5,
+                          ),
+                          _buildFeatureRow(
+                            icon: Icons.widgets_rounded,
+                            title: 'All Home Screen Widgets',
+                            description:
+                                'Brain Dump, Micro Task Pill, and Habit Tracker consistency widgets.',
+                          ),
+                          const Divider(
+                            color: Colors.white10,
+                            height: 24,
+                            thickness: 0.5,
+                          ),
+                          _buildFeatureRow(
+                            icon: Icons.fitness_center_rounded,
+                            title: 'Expanded Ritual Tracking',
+                            description:
+                                'Track multiple simultaneous habits with HabitKit matrix consistency grids.',
+                          ),
+                        ],
+                      ),
                     ),
 
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
 
-                    // Plan Selection Cards
-                    ...List.generate(_plans.length, (index) {
-                      final plan = _plans[index];
+                    // ─── Plan Selector Cards ────────────────────
+                    ...List.generate(plans.length, (index) {
+                      final plan = plans[index];
                       final isSelected = _selectedPlanIndex == index;
+
                       return GestureDetector(
                         onTap: () {
                           HapticFeedback.selectionClick();
-                          setState(() {
-                            _selectedPlanIndex = index;
-                          });
+                          setState(() => _selectedPlanIndex = index);
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? Colors.white.withValues(alpha: 0.08)
-                                : AppColors.backgroundSurface,
-                            borderRadius: BorderRadius.circular(20),
+                                : Colors.white.withValues(alpha: 0.02),
+                            borderRadius: BorderRadius.circular(18),
                             border: Border.all(
                               color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.25)
+                                  ? AppColors.textPrimary
                                   : Colors.white.withValues(alpha: 0.06),
-                              width: isSelected ? 1.0 : 0.5,
+                              width: isSelected ? 1.5 : 0.5,
                             ),
                           ),
                           child: Row(
                             children: [
-                              // Radio Indicator
+                              // Radio circle
                               Container(
-                                width: 20,
-                                height: 20,
+                                width: 22,
+                                height: 22,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
@@ -235,15 +335,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                                         : AppColors.textTertiary,
                                     width: 1.5,
                                   ),
-                                  color: isSelected
-                                      ? AppColors.textPrimary
-                                      : Colors.transparent,
                                 ),
                                 child: isSelected
-                                    ? const Icon(
-                                        Icons.circle,
-                                        size: 8,
-                                        color: AppColors.backgroundDeep,
+                                    ? Center(
+                                        child: Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
                                       )
                                     : null,
                               ),
@@ -317,23 +419,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Upgrade CTA Button
+                    // ─── Upgrade CTA Button ─────────────────────
                     GestureDetector(
-                      onTap: () async {
-                        HapticFeedback.mediumImpact();
-                        await ref.read(subscriptionProvider.notifier).unlockPro();
-                        // Trigger immediate sync on unlock
-                        ref.read(syncServiceProvider).sync();
-
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Welcome to MindWipe Pro! 🚀'),
-                            ),
-                          );
-                          Navigator.of(context).pop();
-                        }
-                      },
+                      onTap: _isLoading ? null : _onSubscribe,
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 18),
@@ -349,29 +437,46 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                           ],
                         ),
                         child: Center(
-                          child: Text(
-                            subState.isPremium
-                                ? 'Pro Active (Tap to Reactivate)'
-                                : 'Start 7-Day Free Trial',
-                            style: const TextStyle(
-                              color: AppColors.backgroundDeep,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: AppColors.backgroundDeep,
+                                  ),
+                                )
+                              : Text(
+                                  subState.isPremium
+                                      ? 'MindWipe Pro Active'
+                                      : (_selectedPlanIndex == 0
+                                          ? 'Start 7-Day Free Trial'
+                                          : 'Upgrade to MindWipe Pro'),
+                                  style: const TextStyle(
+                                    color: AppColors.backgroundDeep,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
+                    // Google Play Compliance Disclaimer
                     Center(
-                      child: Text(
-                        'Cancel anytime in Google Play Store settings.',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                          fontSize: 11,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          'Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel subscriptions in Google Play Store settings.',
+                          textAlign: TextAlign.center,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: AppColors.textTertiary,
+                            fontSize: 10.5,
+                            height: 1.35,
+                          ),
                         ),
                       ),
                     ),

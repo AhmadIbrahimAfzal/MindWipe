@@ -163,10 +163,7 @@ class HabitCard extends ConsumerWidget {
             color: habitColor,
             numWeeks: 18,
             rows: 6,
-            interactive: true,
-            onDateTap: (dateStr) {
-              ref.read(habitsProvider.notifier).toggleDate(habit.id, dateStr);
-            },
+            interactive: false,
           ),
         ],
       ),

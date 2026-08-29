@@ -4,12 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mindwipe/core/services/audio_service.dart';
 import 'package:mindwipe/core/constants/supabase_config.dart';
+import 'package:mindwipe/features/subscription/services/purchase_service.dart';
 import 'app.dart';
 
 /// The entry point of MindWipe.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AudioFeedback.init();
+
+  // Initialize Google Play Billing engine
+  await PurchaseService.instance.initialize();
 
   // Initialize Supabase SDK
   await Supabase.initialize(
