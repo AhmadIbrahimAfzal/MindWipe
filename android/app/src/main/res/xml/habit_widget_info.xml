@@ -8,6 +8,7 @@
     android:maxResizeHeight="200dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/habit_widget_layout"
+    android:previewImage="@drawable/habit_widget_preview"
     android:resizeMode="none"
     android:widgetCategory="home_screen">
 </appwidget-provider>

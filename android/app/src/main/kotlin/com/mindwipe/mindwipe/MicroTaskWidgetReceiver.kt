@@ -37,9 +37,10 @@ class MicroTaskWidgetReceiver : HomeWidgetProvider() {
                     setTextViewText(R.id.micro_task_title, "⭐ MindWipe Pro — Tap to Unlock")
                 }
 
-                // Tapping opens the main app
                 val openAppIntent = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    action = Intent.ACTION_MAIN
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
                 }
                 val openAppPending = PendingIntent.getActivity(
                     context,

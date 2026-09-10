@@ -4,6 +4,7 @@
     android:minHeight="40dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/micro_task_widget_layout"
+    android:previewImage="@drawable/micro_task_widget_preview"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen">
 </appwidget-provider>

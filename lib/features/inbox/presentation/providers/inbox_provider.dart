@@ -47,9 +47,10 @@ class InboxNotifier extends StreamNotifier<List<Task>> {
   Stream<List<Task>> build() {
     final stream = ref.watch(taskRepositoryProvider).watchTasks();
     // Update home screen widgets whenever task stream emits new state
-    stream.listen((taskList) {
+    final sub = stream.listen((taskList) {
       const WidgetSyncService().updateWidgets(taskList);
     });
+    ref.onDispose(() => sub.cancel());
     return stream;
   }
 
@@ -82,6 +83,13 @@ class InboxNotifier extends StreamNotifier<List<Task>> {
   /// Deletes a task from the local database.
   Future<void> deleteTask(String id) async {
     await ref.read(taskRepositoryProvider).deleteTask(id);
+  }
+
+  /// Forces the stream to re-query SQLite, picking up external writes
+  /// (e.g. tasks added via the Android QuickCapture widget).
+  void refresh() {
+    ref.read(databaseProvider).notifyExternalUpdate();
+    ref.invalidateSelf();
   }
 }
 

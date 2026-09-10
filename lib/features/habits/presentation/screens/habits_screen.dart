@@ -16,8 +16,16 @@ import 'package:mindwipe/features/subscription/presentation/screens/paywall_scre
 /// - Top Bar: Settings gear icon (left), Stats (center right), and Purple + Add button (right).
 /// - Paywall enforcement: 1 habit for free tier, 5+ unlocked with MindWipe Pro.
 /// - Dark glassmorphic HabitCards with glowing dot matrix consistency grids.
-class HabitsScreen extends ConsumerWidget {
+class HabitsScreen extends ConsumerStatefulWidget {
   const HabitsScreen({super.key});
+
+  @override
+  ConsumerState<HabitsScreen> createState() => _HabitsScreenState();
+}
+
+class _HabitsScreenState extends ConsumerState<HabitsScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
   void _onAddHabit(BuildContext context, WidgetRef ref, int currentCount, bool isPremium) {
     HapticFeedback.lightImpact();
@@ -42,7 +50,8 @@ class HabitsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    super.build(context);
     final habitsAsync = ref.watch(habitsProvider);
     final subscription = ref.watch(subscriptionProvider);
     final isPremium = subscription.isPremium;
@@ -254,7 +263,9 @@ class HabitsScreen extends ConsumerWidget {
                 itemCount: habits.length,
                 itemBuilder: (context, index) {
                   final habit = habits[index];
-                  return HabitCard(habit: habit);
+                  return RepaintBoundary(
+                    child: HabitCard(habit: habit),
+                  );
                 },
               );
             },

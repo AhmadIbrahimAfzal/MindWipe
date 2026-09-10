@@ -11,7 +11,7 @@ class GlassCard extends StatelessWidget {
     super.key,
     required this.child,
     this.borderRadius = 28,
-    this.blurAmount = 20,
+    this.blurAmount = 0,
     this.opacity = 0.06,
     this.borderOpacity = 0.08,
     this.padding = const EdgeInsets.all(16),
@@ -30,6 +30,29 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget cardContent = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: opacity),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: borderOpacity),
+          width: 0.5,
+        ),
+      ),
+      child: child,
+    );
+
+    if (blurAmount > 0) {
+      cardContent = BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: blurAmount,
+          sigmaY: blurAmount,
+        ),
+        child: cardContent,
+      );
+    }
+
     return Padding(
       padding: margin,
       child: Container(
@@ -48,24 +71,7 @@ class GlassCard extends StatelessWidget {
             : null,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(borderRadius),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: blurAmount,
-              sigmaY: blurAmount,
-            ),
-            child: Container(
-              padding: padding,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: opacity),
-                borderRadius: BorderRadius.circular(borderRadius),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: borderOpacity),
-                  width: 0.5,
-                ),
-              ),
-              child: child,
-            ),
-          ),
+          child: cardContent,
         ),
       ),
     );

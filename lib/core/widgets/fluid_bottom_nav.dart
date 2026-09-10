@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 import 'package:mindwipe/core/theme/app_colors.dart';
 import 'package:mindwipe/core/services/audio_service.dart';
 
@@ -29,8 +30,10 @@ class FluidBottomNav extends StatefulWidget {
 
 class _FluidBottomNavState extends State<FluidBottomNav>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  static final String? _outfitFontFamily = GoogleFonts.outfit().fontFamily;
+
   // ─── Page State ──────────────────────────────────────────
-  double _currentPage = 1.0;
+  final ValueNotifier<double> _currentPageNotifier = ValueNotifier<double>(1.0);
   int _lastTickPage = 1;
 
   // ─── Add Button Morph State ──────────────────────────────
@@ -97,6 +100,7 @@ class _FluidBottomNavState extends State<FluidBottomNav>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.pageController.removeListener(_onPageScroll);
+    _currentPageNotifier.dispose();
     _morphController.dispose();
     _snapBackController.dispose();
     _textController.dispose();
@@ -110,19 +114,17 @@ class _FluidBottomNavState extends State<FluidBottomNav>
     final rounded = page.round();
     if (rounded != _lastTickPage) {
       _lastTickPage = rounded;
-      AudioFeedback.playTick();
+      HapticFeedback.selectionClick();
     }
-    setState(() {
-      _currentPage = page;
-    });
+    _currentPageNotifier.value = page;
   }
 
   void _goToPage(int index) {
-    AudioFeedback.playTick();
+    HapticFeedback.selectionClick();
     widget.pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeOutCubic,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutQuart,
     );
   }
 
@@ -264,31 +266,50 @@ class _FluidBottomNavState extends State<FluidBottomNav>
             // ─── 3-Tab Bottom Title Row ─────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Left: Habits (faded when on Inbox/MindMap)
-                  _buildNavTitle(
-                    index: 0,
-                    label: _pageLabels[0],
-                    alignment: Alignment.centerLeft,
-                  ),
+              child: ValueListenableBuilder<double>(
+                valueListenable: _currentPageNotifier,
+                builder: (context, currentPage, _) {
+                  return SizedBox(
+                    height: 40,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Left: Habits (faded when on Inbox/MindMap)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _buildNavTitle(
+                            index: 0,
+                            currentPage: currentPage,
+                            label: _pageLabels[0],
+                            alignment: Alignment.centerLeft,
+                          ),
+                        ),
 
-                  // Center: Inbox (bold & prominent when active)
-                  _buildNavTitle(
-                    index: 1,
-                    label: _pageLabels[1],
-                    alignment: Alignment.center,
-                  ),
+                        // Center: Inbox (ALWAYS perfectly centered vertically with the + button)
+                        Align(
+                          alignment: Alignment.center,
+                          child: _buildNavTitle(
+                            index: 1,
+                            currentPage: currentPage,
+                            label: _pageLabels[1],
+                            alignment: Alignment.center,
+                          ),
+                        ),
 
-                  // Right: MindMap (faded when on Habits/Inbox)
-                  _buildNavTitle(
-                    index: 2,
-                    label: _pageLabels[2],
-                    alignment: Alignment.centerRight,
-                  ),
-                ],
+                        // Right: MindMap (faded when on Habits/Inbox)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: _buildNavTitle(
+                            index: 2,
+                            currentPage: currentPage,
+                            label: _pageLabels[2],
+                            alignment: Alignment.centerRight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -299,21 +320,27 @@ class _FluidBottomNavState extends State<FluidBottomNav>
 
   Widget _buildNavTitle({
     required int index,
+    required double currentPage,
     required String label,
     required Alignment alignment,
   }) {
     // Distance from current scroll position
-    final double distance = (_currentPage - index).abs().clamp(0.0, 1.0);
+    final double distance = (currentPage - index).abs().clamp(0.0, 1.0);
     final double activeWeight = 1.0 - distance; // 1.0 when active, 0.0 when distant
 
-    // Interpolate font size, color and opacity
+    // Smoothly interpolate font size, color, opacity and weight
     final double fontSize = lerpDouble(13.0, 18.0, activeWeight)!;
     final Color textColor = Color.lerp(
       const Color(0xFF636366), // Muted greyish tone
       const Color(0xFFF2F2F7), // Bold bubbly bright white
       activeWeight,
     )!;
-    final FontWeight fontWeight = activeWeight > 0.6 ? FontWeight.w700 : FontWeight.w500;
+    // Smooth font weight interpolation instead of abrupt threshold
+    final int weightValue = lerpDouble(500, 700, activeWeight)!.round();
+    // Round to nearest valid FontWeight
+    final FontWeight fontWeight = FontWeight.values[
+      ((weightValue - 100) ~/ 100).clamp(0, 8)
+    ];
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -321,15 +348,15 @@ class _FluidBottomNavState extends State<FluidBottomNav>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         alignment: alignment,
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 150),
-          style: GoogleFonts.outfit(
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: _outfitFontFamily,
             fontSize: fontSize,
             fontWeight: fontWeight,
             color: textColor,
-            letterSpacing: activeWeight > 0.6 ? -0.3 : 0.2,
+            letterSpacing: lerpDouble(0.2, -0.3, activeWeight),
           ),
-          child: Text(label),
         ),
       ),
     );

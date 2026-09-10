@@ -99,8 +99,11 @@ class HabitWidgetReceiver : HomeWidgetProvider() {
                 isCompletedToday = dbData.isCompletedToday
                 matrixData = dbData.matrixData
             } else {
-                name = "Create a Habit"
-                description = "Open MindWipe to add your first ritual"
+                name = "MindWipe"
+                description = "Open app to sync your habit"
+                iconKey = "brain"
+                colorHexStr = "#48484A"  // Neutral grey placeholder
+                matrixData = List(108) { "0" }.joinToString(",")
             }
         }
 
@@ -145,7 +148,9 @@ class HabitWidgetReceiver : HomeWidgetProvider() {
 
             // 2. Open app on widget body tap
             val openAppIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                action = Intent.ACTION_MAIN
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
             }
             val openAppPending = PendingIntent.getActivity(
                 context,

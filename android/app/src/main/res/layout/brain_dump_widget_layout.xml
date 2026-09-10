@@ -29,19 +29,29 @@
             android:textStyle="bold"
             android:letterSpacing="0.08" />
 
-        <!-- Big Bubbly Top Task -->
-        <TextView
-            android:id="@+id/widget_top_task"
-            android:layout_width="wrap_content"
+        <!-- Rotating Task Flipper with Smooth Slide-Up & Fade Transition -->
+        <ViewFlipper
+            android:id="@+id/widget_task_flipper"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="Dump a thought..."
-            android:textColor="#F2F2F7"
-            android:textSize="17sp"
-            android:fontFamily="sans-serif-rounded"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:inAnimation="@anim/widget_task_slide_in"
+            android:outAnimation="@anim/widget_task_slide_out"
+            android:autoStart="true"
+            android:flipInterval="3500">
+
+            <TextView
+                android:id="@+id/widget_top_task"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dump a thought..."
+                android:textColor="#F2F2F7"
+                android:textSize="17sp"
+                android:fontFamily="sans-serif-rounded"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </ViewFlipper>
     </LinearLayout>
 
     <!-- Bubbly Circular Add Button -->

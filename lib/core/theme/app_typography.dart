@@ -17,8 +17,7 @@ class AppTypography {
   ///
   /// Usage: Set this as [ThemeData.textTheme] in your MaterialApp.
   /// Then access styles with: Theme.of(context).textTheme.headlineLarge
-  static TextTheme get textTheme {
-    return TextTheme(
+  static final TextTheme textTheme = TextTheme(
       // ─── Display (Large hero text, rarely used) ──────────────
       displayLarge: GoogleFonts.outfit(
         fontSize: 40,
@@ -106,5 +105,4 @@ class AppTypography {
         color: AppColors.textTertiary,
       ),
     );
-  }
 }

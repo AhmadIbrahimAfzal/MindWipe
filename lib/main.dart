@@ -13,13 +13,21 @@ void main() async {
   AudioFeedback.init();
 
   // Initialize Google Play Billing engine
-  await PurchaseService.instance.initialize();
+  try {
+    await PurchaseService.instance.initialize();
+  } catch (e) {
+    debugPrint('[Main] PurchaseService init warning: $e');
+  }
 
   // Initialize Supabase SDK
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    publishableKey: SupabaseConfig.publishableKey,
-  );
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      publishableKey: SupabaseConfig.publishableKey,
+    );
+  } catch (e) {
+    debugPrint('[Main] Supabase init warning: $e');
+  }
 
   // Make the system navigation bar blend with our dark theme
   SystemChrome.setSystemUIOverlayStyle(

@@ -90,6 +90,16 @@ class AppDatabase extends _$AppDatabase {
       },
     );
   }
+
+  /// Explicitly notifies Drift stream queries that external SQLite writes have occurred
+  /// (e.g. from the Android QuickCapture activity or native Home Screen widgets).
+  void notifyExternalUpdate() {
+    notifyUpdates({
+      TableUpdate.onTable(tasks),
+      TableUpdate.onTable(habits),
+      TableUpdate.onTable(habitCompletions),
+    });
+  }
 }
 
 /// Helper function to configure the database file storage location.

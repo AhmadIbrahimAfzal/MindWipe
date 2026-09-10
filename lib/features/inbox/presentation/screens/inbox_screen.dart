@@ -24,7 +24,10 @@ class InboxScreen extends ConsumerStatefulWidget {
   ConsumerState<InboxScreen> createState() => _InboxScreenState();
 }
 
-class _InboxScreenState extends ConsumerState<InboxScreen> {
+class _InboxScreenState extends ConsumerState<InboxScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   String _getRelativeTime(DateTime dateTime) {
     final difference = DateTime.now().difference(dateTime);
     if (difference.inSeconds < 60) {
@@ -91,6 +94,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final textTheme = Theme.of(context).textTheme;
     final tasksAsync = ref.watch(inboxProvider);
 
@@ -185,7 +189,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                     ),
                   ),
                   child: Icon(
-                    Icons.pets_rounded,
+                    Icons.psychology_rounded,
                     size: 18,
                     color: AppColors.textSecondary,
                   ),
@@ -212,44 +216,46 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                 itemCount: tasks.length,
                 itemBuilder: (context, index) {
                   final task = tasks[index];
-                  return Dismissible(
-                    key: Key(task.id),
-                    direction: DismissDirection.endToStart,
-                    dismissThresholds: const {DismissDirection.endToStart: 0.35},
-                    movementDuration: const Duration(milliseconds: 250),
-                    onDismissed: (_) {
-                      ref.read(inboxProvider.notifier).deleteTask(task.id);
-                      AudioFeedback.playWhoosh();
-                      _showGlassSnackBar(context, 'Thought cleared');
-                    },
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 32),
-                      color: Colors.transparent,
-                      child: Icon(
-                        Icons.delete_outline_rounded,
-                        color: AppColors.error.withValues(alpha: 0.7),
-                        size: 22,
-                      ),
-                    ),
-                    child: TaskCard(
-                      title: task.title,
-                      timestamp: _getRelativeTime(task.createdAt),
-                      isCompleted: task.isCompleted,
-                      onCompleteTap: () {
-                        ref.read(inboxProvider.notifier).toggleComplete(task.id);
-                        AudioFeedback.playPop();
+                  return RepaintBoundary(
+                    child: Dismissible(
+                      key: Key(task.id),
+                      direction: DismissDirection.endToStart,
+                      dismissThresholds: const {DismissDirection.endToStart: 0.35},
+                      movementDuration: const Duration(milliseconds: 250),
+                      onDismissed: (_) {
+                        ref.read(inboxProvider.notifier).deleteTask(task.id);
+                        AudioFeedback.playWhoosh();
+                        _showGlassSnackBar(context, 'Thought cleared');
                       },
-                    ).animate().fadeIn(
-                      delay: Duration(milliseconds: index.clamp(0, 8) * 50),
-                      duration: const Duration(milliseconds: 350),
-                      curve: Curves.easeOut,
-                    ).slideX(
-                      begin: 0.03,
-                      end: 0,
-                      delay: Duration(milliseconds: index.clamp(0, 8) * 50),
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeOutCubic,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 32),
+                        color: Colors.transparent,
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          color: AppColors.error.withValues(alpha: 0.7),
+                          size: 22,
+                        ),
+                      ),
+                      child: TaskCard(
+                        title: task.title,
+                        timestamp: _getRelativeTime(task.createdAt),
+                        isCompleted: task.isCompleted,
+                        onCompleteTap: () {
+                          ref.read(inboxProvider.notifier).toggleComplete(task.id);
+                          AudioFeedback.playPop();
+                        },
+                      ).animate().fadeIn(
+                        delay: Duration(milliseconds: index.clamp(0, 8) * 50),
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeOut,
+                      ).slideX(
+                        begin: 0.03,
+                        end: 0,
+                        delay: Duration(milliseconds: index.clamp(0, 8) * 50),
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                      ),
                     ),
                   );
                 },

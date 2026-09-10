@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mindwipe/features/inbox/domain/entities/task.dart';
@@ -40,6 +41,13 @@ class WidgetSyncService {
     await HomeWidget.saveWidgetData(
       'is_premium',
       premium ? 'true' : 'false',
+    );
+
+    // Save all pending task titles as JSON so the Brain Dump widget can rotate through them
+    final allTitles = pendingTasks.map((t) => t.title).toList();
+    await HomeWidget.saveWidgetData(
+      'all_task_titles',
+      jsonEncode(allTitles),
     );
 
     // Trigger update broadcasts to force Android widget redraw

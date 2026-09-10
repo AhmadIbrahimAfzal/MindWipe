@@ -45,7 +45,7 @@ class QuickCaptureActivity : Activity() {
         // Close when tapping outside the card
         scrim.setOnClickListener {
             closeKeyboard(input)
-            finish()
+            finishAndRemoveTask()
         }
 
         // Prevent click on the card from closing
@@ -65,7 +65,7 @@ class QuickCaptureActivity : Activity() {
                 Toast.makeText(this, "Thought captured ✨", Toast.LENGTH_SHORT).show()
             }
             closeKeyboard(input)
-            finish()
+            finishAndRemoveTask()
         }
 
         submitBtn.setOnClickListener { doSubmit() }
@@ -80,6 +80,14 @@ class QuickCaptureActivity : Activity() {
         }
     }
 
+    override fun onBackPressed() {
+        val input = findViewById<EditText>(R.id.quick_capture_input)
+        if (input != null) {
+            closeKeyboard(input)
+        }
+        finishAndRemoveTask()
+    }
+
     private fun closeKeyboard(view: View) {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(view.windowToken, 0)
@@ -88,20 +96,15 @@ class QuickCaptureActivity : Activity() {
     private fun saveThought(title: String) {
         val id = UUID.randomUUID().toString()
         val nowMillis = System.currentTimeMillis()
-        val df = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val isoDate = df.format(Date(nowMillis))
+        val nowSeconds = nowMillis / 1000
 
-        // 1. Insert into Drift SQLite database
+        // 1. Insert into Drift SQLite database (Drift stores DateTime as Unix seconds)
         try {
-            // In Flutter, app documents are at /data/data/<pkg>/app_flutter
             val dbFolder = File(filesDir.parentFile, "app_flutter")
             if (!dbFolder.exists()) dbFolder.mkdirs()
             val dbFile = File(dbFolder, "mindwipe.db")
 
             val db = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
-            // Create table if not exists just in case
             db.execSQL(
                 "CREATE TABLE IF NOT EXISTS tasks (" +
                 "id TEXT NOT NULL PRIMARY KEY, " +
@@ -117,9 +120,9 @@ class QuickCaptureActivity : Activity() {
             val values = ContentValues().apply {
                 put("id", id)
                 put("title", title)
-                put("created_at", nowMillis)
+                put("created_at", nowSeconds)
                 put("is_completed", 0)
-                put("updated_at", nowMillis)
+                put("updated_at", nowSeconds)
                 put("is_dirty", 1)
                 put("is_deleted", 0)
             }
@@ -129,37 +132,92 @@ class QuickCaptureActivity : Activity() {
             e.printStackTrace()
         }
 
-        // 2. Update home_widget shared preferences
+        // 2. Query all pending tasks to keep widgets perfectly in sync
+        val allTitles = mutableListOf<String>()
         try {
-            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            val currentCountStr = prefs.getString("flutter.pending_count", "0") ?: "0"
-            val count = (currentCountStr.toIntOrNull() ?: 0) + 1
+            val dbFolder = File(filesDir.parentFile, "app_flutter")
+            val dbFile = File(dbFolder, "mindwipe.db")
+            if (dbFile.exists()) {
+                val readDb = SQLiteDatabase.openDatabase(
+                    dbFile.path, null, SQLiteDatabase.OPEN_READONLY
+                )
+                val cursor = readDb.rawQuery(
+                    "SELECT title FROM tasks WHERE is_completed = 0 AND is_deleted = 0 ORDER BY created_at DESC",
+                    null
+                )
+                while (cursor.moveToNext()) {
+                    allTitles.add(cursor.getString(0))
+                }
+                cursor.close()
+                readDb.close()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-            prefs.edit()
-                .putString("flutter.top_task_title", title)
-                .putString("flutter.top_task_id", id)
-                .putString("flutter.pending_count", count.toString())
+        val countStr = allTitles.size.toString()
+        val jsonArray = org.json.JSONArray(allTitles)
+
+        // 3. Update HomeWidgetPreferences (used by HomeWidgetPlugin on Android)
+        val homePrefs = getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+        try {
+            homePrefs.edit()
+                .putString("top_task_title", title)
+                .putString("top_task_id", id)
+                .putString("pending_count", countStr)
+                .putString("all_task_titles", jsonArray.toString())
                 .apply()
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        // 3. Broadcast widget refresh
+        // 4. Also update FlutterSharedPreferences for Flutter-side fallback
+        try {
+            val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            flutterPrefs.edit()
+                .putString("flutter.top_task_title", title)
+                .putString("flutter.top_task_id", id)
+                .putString("flutter.pending_count", countStr)
+                .putString("flutter.all_task_titles", jsonArray.toString())
+                .putString("top_task_title", title)
+                .putString("top_task_id", id)
+                .putString("pending_count", countStr)
+                .putString("all_task_titles", jsonArray.toString())
+                .apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 5. Instantly and synchronously re-render home screen widgets
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val dumpComponent = ComponentName(this, BrainDumpWidgetReceiver::class.java)
         val dumpIds = appWidgetManager.getAppWidgetIds(dumpComponent)
-        val intent = Intent(this, BrainDumpWidgetReceiver::class.java).apply {
-            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, dumpIds)
+        if (dumpIds.isNotEmpty()) {
+            try {
+                BrainDumpWidgetReceiver().onUpdate(this, appWidgetManager, dumpIds, homePrefs)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            val intent = Intent(this, BrainDumpWidgetReceiver::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, dumpIds)
+            }
+            sendBroadcast(intent)
         }
-        sendBroadcast(intent)
 
         val microComponent = ComponentName(this, MicroTaskWidgetReceiver::class.java)
         val microIds = appWidgetManager.getAppWidgetIds(microComponent)
-        val microIntent = Intent(this, MicroTaskWidgetReceiver::class.java).apply {
-            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, microIds)
+        if (microIds.isNotEmpty()) {
+            try {
+                MicroTaskWidgetReceiver().onUpdate(this, appWidgetManager, microIds, homePrefs)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            val microIntent = Intent(this, MicroTaskWidgetReceiver::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, microIds)
+            }
+            sendBroadcast(microIntent)
         }
-        sendBroadcast(microIntent)
     }
 }

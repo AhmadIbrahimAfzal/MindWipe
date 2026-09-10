@@ -26,9 +26,10 @@ class HabitsNotifier extends StreamNotifier<List<Habit>> {
     final stream = repo.watchHabits().asBroadcastStream();
 
     // Broadcast update to Android home screen habit widget
-    stream.listen((habits) {
+    final sub = stream.listen((habits) {
       const WidgetSyncService().updateHabitWidget(habits);
     });
+    ref.onDispose(() => sub.cancel());
 
     return stream;
   }
@@ -82,6 +83,13 @@ class HabitsNotifier extends StreamNotifier<List<Habit>> {
   Future<void> toggleDate(String habitId, String dateStr) async {
     await ref.read(habitRepositoryProvider).toggleDate(habitId, dateStr);
     AudioFeedback.playTick();
+  }
+
+  /// Forces the stream to re-query SQLite, picking up external writes
+  /// (e.g. habit toggles from the Android Home Screen widget).
+  void refresh() {
+    ref.read(databaseProvider).notifyExternalUpdate();
+    ref.invalidateSelf();
   }
 }
 

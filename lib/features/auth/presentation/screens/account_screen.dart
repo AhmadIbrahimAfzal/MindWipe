@@ -246,17 +246,6 @@ class AccountScreen extends ConsumerWidget {
                             ref.read(authProvider.notifier).linkGoogle();
                           },
                         ),
-                        const SizedBox(height: 12),
-
-                        // ─── Apple Sign-In Button ───────────────
-                        _buildNeumorphicButton(
-                          icon: Icons.apple_rounded,
-                          label: 'Continue with Apple',
-                          onTap: () {
-                            HapticFeedback.mediumImpact();
-                            ref.read(authProvider.notifier).linkApple();
-                          },
-                        ),
                       ] else ...[
                         // ─── Authenticated: Sync Controls ───────
                         GlassCard(

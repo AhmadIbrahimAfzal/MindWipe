@@ -22,13 +22,14 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserver {
   late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 1);
+    WidgetsBinding.instance.addObserver(this);
 
     // Initialize guest session, background sync, and warm up habit widget sync
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -42,7 +43,20 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // When the app returns to the foreground, re-query SQLite to pick up
+    // any tasks/habits added or toggled externally via the Android widget.
+    if (state == AppLifecycleState.resumed) {
+      ref.read(databaseProvider).notifyExternalUpdate();
+      ref.read(inboxProvider.notifier).refresh();
+      ref.read(habitsProvider.notifier).refresh();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
   }
@@ -73,9 +87,9 @@ class _MainShellState extends ConsumerState<MainShell> {
                   controller: _pageController,
                   physics: const BouncingScrollPhysics(),
                   children: const [
-                    HabitsScreen(),
-                    InboxScreen(),
-                    MindScreen(),
+                    RepaintBoundary(child: HabitsScreen()),
+                    RepaintBoundary(child: InboxScreen()),
+                    RepaintBoundary(child: MindScreen()),
                   ],
                 ),
               ),
@@ -85,11 +99,13 @@ class _MainShellState extends ConsumerState<MainShell> {
                 bottom: bottomPadding,
                 left: 0,
                 right: 0,
-                child: FluidBottomNav(
-                  pageController: _pageController,
-                  onTaskAdded: (title) {
-                    ref.read(inboxProvider.notifier).addTask(title);
-                  },
+                child: RepaintBoundary(
+                  child: FluidBottomNav(
+                    pageController: _pageController,
+                    onTaskAdded: (title) {
+                      ref.read(inboxProvider.notifier).addTask(title);
+                    },
+                  ),
                 ),
               ),
             ],
